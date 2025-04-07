@@ -2,44 +2,43 @@ name: Node.js EC2 Deployment
 
 on:
   push:
-    branches: ["master"]  # Change to "main" if your default branch is main
+    branches: ["master"]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '16'
-
-      - name: Install dependencies (including devDependencies)
-        run: npm ci
-
-      - name: Run tests with Mocha
-        run: npx mocha
+      - run: npm ci
+      - run: npx mocha
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
+      - uses: actions/checkout@v3
+      
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.EC2_SSH_KEY }}
           known_hosts: ${{ secrets.EC2_KNOWN_HOSTS }}
-
-      - name: Test SSH connection
-        run: ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} "echo ✅ SSH connection successful"
-
+          
+      - name: Show connection info (debug)
+        run: |
+          echo "Attempting to connect to: ${{ secrets.EC2_HOST }}"
+          ping -c 4 ${{ secrets.EC2_HOST }} || echo "Ping failed"
+          
+      - name: Test SSH connection with timeout
+        run: |
+          timeout 30s bash -c 'until ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ec2-user@${{ secrets.EC2_HOST }} "echo ✅ SSH connection successful"; do
+            sleep 2
+            echo "Retrying SSH connection..."
+          done'
+          
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
