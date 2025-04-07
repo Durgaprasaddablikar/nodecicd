@@ -5,8 +5,12 @@ app.get('/', (req, res) => {
   res.send('Hello, World!');
 });
 
-const server = app.listen(3000, () => {
-  console.log('Server started on port 3000');
-});
+// Start the server only if this file is run directly
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server started on port ${PORT}`);
+  });
+}
 
-module.exports = server; // <--- this line is important!
+module.exports = app;
