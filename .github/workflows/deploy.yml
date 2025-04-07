@@ -2,49 +2,43 @@ name: Node.js EC2 Deployment
 
 on:
   push:
-    branches: ["master"]
+    branches:
+      - master  # Change to 'main' if your default branch is named 'main'
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '16'
-      - run: npm ci
-      - run: npx mocha
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with Mocha
+        run: npx mocha
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.EC2_SSH_KEY }}
-          known_hosts: ${{ secrets.EC2_KNOWN_HOSTS }}
-          
-      - name: Show connection info (debug)
-        run: |
-          echo "Attempting to connect to: ${{ secrets.EC2_HOST }}"
-          ping -c 4 ${{ secrets.EC2_HOST }} || echo "Ping failed"
-          
-      - name: Test SSH connection with timeout
-        run: |
-          timeout 30s bash -c 'until ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ec2-user@${{ secrets.EC2_HOST }} "echo ✅ SSH connection successful"; do
-            sleep 2
-            echo "Retrying SSH connection..."
-          done'
-          
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Deploy to EC2
-        run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-          cd ~/app
-          git pull origin master
-          npm install
-          pm2 stop all || true
-          pm2 start index.js
-          EOF
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/app
+            git pull origin master
+            npm install
+            pm2 stop all || true
+            pm2 start index.js
