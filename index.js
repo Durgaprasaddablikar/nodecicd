@@ -1,13 +1,15 @@
-// index.js
-const http = require('http');
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-const server = http.createServer((req, res) => {
-  res.end('Server running!');
+app.get('/', (req, res) => {
+  res.send('Hello from our EC2 CI/CD deployment!');
 });
 
-server.listen(3000, () => {
-  console.log('Server started on port 3000');
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
 });
 
-module.exports = server;
+module.exports = app; // <-- Add this line
+
 
