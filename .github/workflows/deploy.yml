@@ -2,46 +2,66 @@ name: Node.js EC2 Deployment
 
 on:
   push:
-    branches:
-      - master  # Change to 'main' if your default branch is named 'main'
+    branches: ["master"]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '16'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests with Mocha
-        run: npx mocha
+      - run: npm ci
+      - run: npx mocha
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Test SSH connection
-        run: ssh -vvv -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "echo ✅ Connection successful"
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.0
+      - uses: actions/checkout@v3
+      
+      - name: Install SSH key with strict configuration
+        uses: shimataro/ssh-key-action@v2
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/app
-            git pull origin master
-            npm install
-            pm2 stop all || true
-            pm2 start index.js
+          known_hosts: ${{ secrets.EC2_KNOWN_HOSTS }}
+          config: |
+            Host ${{ secrets.EC2_HOST }}
+              HostName ${{ secrets.EC2_HOST }}
+              User ec2-user
+              IdentityFile ~/.ssh/id_rsa
+              IdentitiesOnly yes
+              StrictHostKeyChecking no
+              ConnectTimeout 30
+              
+      - name: Debug SSH setup
+        run: |
+          echo "=== SSH Key ==="
+          cat ~/.ssh/id_rsa | head -n 3
+          echo "..."
+          cat ~/.ssh/id_rsa | tail -n 3
+          echo -e "\n=== SSH Config ==="
+          cat ~/.ssh/config
+          echo -e "\n=== Key Permissions ==="
+          ls -la ~/.ssh/
+          echo -e "\n=== Network Check ==="
+          nc -zv -w 5 ${{ secrets.EC2_HOST }} 22 || echo "Port 22 test failed"
+          
+      - name: Test SSH connection with verbose output
+        run: ssh -vvv ec2-user@${{ secrets.EC2_HOST }} "echo '✅ Successful connection'"
+        
+      - name: Deploy to EC2
+        run: |
+          ssh ec2-user@${{ secrets.EC2_HOST }} << 'DEPLOY'
+          cd ~/app
+          echo "Current directory: $(pwd)"
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          git pull origin master
+          npm ci --production
+          pm2 delete all || true
+          pm2 start index.js
+          pm2 save
+          pm2 list
+          DEPLOY
