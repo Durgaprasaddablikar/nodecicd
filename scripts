@@ -1,5 +1,5 @@
 "scripts": {
-  "test": "mocha",
+  "test": "npx mocha",
   "start": "node index.js"
 }
 
