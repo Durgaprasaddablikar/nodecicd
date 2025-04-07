@@ -1,11 +1,23 @@
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
+const app = require('../index'); // or wherever your server is
+const request = require('supertest');
+let server;
 
-app.get('/', (req, res) => {
-  res.send('Hello from our EC2 CI/CD deployment!');
+before((done) => {
+  server = app.listen(3000, () => {
+    console.log('Server started on port 3000');
+    done();
+  });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+after((done) => {
+  server.close(done); // <-- Important!
+});
+
+describe('Server', () => {
+  it('should return hello message', (done) => {
+    request(server)
+      .get('/')
+      .expect(200)
+      .expect('Hello, World!', done);
+  });
 });
