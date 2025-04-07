@@ -2,7 +2,7 @@ name: Node.js EC2 Deployment
 
 on:
   push:
-    branches: ["main"]  # Or "master" if you're actually using that
+    branches: ["master"]  # Or "master" if you're actually using that
 
 jobs:
   test:
