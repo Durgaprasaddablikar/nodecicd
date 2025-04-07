@@ -1,9 +1,11 @@
-const app = require('./index');
+const request = require('supertest');
+const app = require('./index'); // ✅ Ensure this path is correct
 
-describe('Server', function () {
-  it('should return hello message', function () {
-    app.get('/', function (req, res) {
-      res.send('Hello World');
-    });
+describe('Server', () => {
+  it('should return hello message', (done) => {
+    request(app)
+      .get('/')
+      .expect(200)
+      .expect('Hello, World!', done);
   });
 });
